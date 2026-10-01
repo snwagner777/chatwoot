@@ -243,6 +243,7 @@ const bounded = (entries, entry) => {
       fs.writeFileSync(`${root}/revoked.json`, '[]');
       await context.close();
     }
+    report.stage = 'runtime-error-check';
     assert.deepEqual(report.pageErrors, []);
   } catch (error) {
     report.failure = errorSummary(error);

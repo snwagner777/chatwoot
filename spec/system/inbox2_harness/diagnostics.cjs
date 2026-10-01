@@ -46,9 +46,11 @@ const errorSummary = error => {
           ? 'resource-load-failed'
           : /CORS policy|cross-origin/.test(message)
             ? 'cross-origin-blocked'
-            : name === 'TimeoutError'
-              ? 'timeout'
-              : 'unclassified');
+            : /WebSocket closed without opened/.test(message)
+              ? 'websocket-before-open'
+              : name === 'TimeoutError'
+                ? 'timeout'
+                : 'unclassified');
   return { name, code };
 };
 module.exports = { assetPath, errorSummary };

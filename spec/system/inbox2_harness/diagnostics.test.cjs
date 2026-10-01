@@ -57,3 +57,13 @@ test('runtime reports classify errors without messages, tokens or stacks', () =>
     { name: 'TimeoutError', code: 'timeout' }
   );
 });
+
+test('classifies WebSocket startup errors without retaining messages or tokens', () => {
+  assert.deepEqual(
+    errorSummary({
+      name: 'Error',
+      message: 'WebSocket closed without opened.',
+    }),
+    { name: 'Error', code: 'websocket-before-open' }
+  );
+});

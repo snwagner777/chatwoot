@@ -26,6 +26,7 @@ jobs:
     env:
       RAILS_ENV: development
       NODE_ENV: development
+      VITE_RUBY_HOST: 127.0.0.1
       POSTGRES_HOST: 127.0.0.1
       POSTGRES_PORT: '5432'
       POSTGRES_USERNAME: postgres
