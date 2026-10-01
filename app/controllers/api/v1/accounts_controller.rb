@@ -1,7 +1,6 @@
 class Api::V1::AccountsController < Api::BaseController
   include AuthHelper
-
-  OPERATOR_THEMES = %w[economyops].freeze
+  include OperatorThemeConcern
 
   skip_before_action :authenticate_user!, :set_current_user, :handle_with_exception,
                      only: [:create], raise: false
@@ -11,6 +10,7 @@ class Api::V1::AccountsController < Api::BaseController
   before_action :fetch_account, except: [:create]
   before_action :validate_token_api_access, if: :authenticate_by_access_token?, except: [:create]
   before_action :check_authorization, except: [:create]
+  before_action :validate_operator_theme, only: [:update]
 
   rescue_from CustomExceptions::Account::InvalidEmail,
               CustomExceptions::Account::InvalidParams,
@@ -57,19 +57,9 @@ class Api::V1::AccountsController < Api::BaseController
   end
 
   def update
-    if params.key?(:operator_theme) && !["", *OPERATOR_THEMES].include?(params[:operator_theme])
-      return render json: { error: 'Invalid operator theme' }, status: :unprocessable_entity
-    end
-
     @account.assign_attributes(account_params.slice(:name, :locale, :domain, :support_email))
     @account.custom_attributes.merge!(custom_attributes_params)
-    if params.key?(:operator_theme)
-      if params[:operator_theme].blank?
-        @account.custom_attributes.delete('operator_theme')
-      else
-        @account.custom_attributes['operator_theme'] = params[:operator_theme]
-      end
-    end
+    apply_operator_theme
     @account.settings.merge!(settings_params)
     @account.custom_attributes['onboarding_step'] = 'invite_team' if @account.custom_attributes['onboarding_step'] == 'account_update'
     @account.save!

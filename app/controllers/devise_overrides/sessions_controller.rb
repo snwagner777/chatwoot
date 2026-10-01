@@ -44,7 +44,7 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController 
 
   def merge_credential_headers
     params[:email] ||= request.headers['email'] unless request.headers['email'].nil?
-    params[:email] = params[:email].strip.downcase if params[:email].is_a?(String)
+    normalize_eps_login_email
     params[:password] ||= request.headers['password'] unless request.headers['password'].nil?
   end
 

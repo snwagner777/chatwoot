@@ -32,6 +32,18 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-22.04-arm
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7.4.3-alpine@sha256:f773b35a95e170d92dd4214a3ec4859b1b7960bf56896ae687646d695f311187
+        ports: ['6379:6379']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,6 +64,20 @@ jobs:
             RAILWAY_GIT_COMMIT_SHA=${{ github.sha }}
             CW_EDITION=ce
           push: false
-          load: false
+          load: true
+          tags: inbox2-production-check:ci
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Verify real production image excludes Rack proxy middleware
+        run: |
+          docker run --rm --network host \
+            -e RAILS_ENV=production -e NODE_ENV=production \
+            -e SECRET_KEY_BASE=synthetic-ci-only-never-a-production-key \
+            -e POSTGRES_HOST=127.0.0.1 -e POSTGRES_PORT=5432 \
+            -e POSTGRES_USERNAME=postgres -e POSTGRES_PASSWORD= \
+            -e POSTGRES_DATABASE=inbox2_production_gate \
+            -e REDIS_URL=redis://127.0.0.1:6379 \
+            -e ANNOTATERB_SKIP_ON_DB_TASKS=1 \
+            --entrypoint /bin/sh inbox2-production-check:ci -ec \
+            'bundle exec rails db:chatwoot_prepare && bundle exec rails runner docker/entrypoints/spec/production_middleware_check.rb'

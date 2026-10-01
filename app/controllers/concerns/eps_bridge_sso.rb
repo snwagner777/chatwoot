@@ -1,6 +1,10 @@
 module EpsBridgeSso
   private
 
+  def normalize_eps_login_email
+    params[:email] = params[:email].strip.downcase if params[:email].is_a?(String)
+  end
+
   def eps_login_method_allowed?
     user = User.from_email(params[:email]) if params[:email].present?
     return true unless user&.custom_attributes&.key?('eps_bridge')

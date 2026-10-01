@@ -19,7 +19,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
         ports: ['5432:5432']
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
         image: redis:7.4.3-alpine@sha256:f773b35a95e170d92dd4214a3ec4859b1b7960bf56896ae687646d695f311187
         ports: ['6379:6379']
@@ -48,9 +48,8 @@ jobs:
         with:
           ruby-version: '3.4.4'
           bundler-cache: true
+      # packageManager already pins pnpm with its integrity hash.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.0
       - uses: actions/setup-node@v4
         with:
           node-version: 24.13.0

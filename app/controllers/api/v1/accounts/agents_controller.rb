@@ -50,6 +50,7 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
 
   def enforce_eps_membership_management
     return unless Current.account.custom_attributes['eps_managed'] == true
+
     render json: { error: 'Manage workforce memberships in EPS Admin' }, status: :unprocessable_entity
   end
 
