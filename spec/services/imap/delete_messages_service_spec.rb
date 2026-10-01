@@ -9,8 +9,8 @@ RSpec.describe Imap::DeleteMessagesService do
       google?: false, microsoft?: false
     )
   end
-  let(:imap) { double('synthetic IMAP connection') }
-  let(:trash) { double('Trash folder', attr: [:'\\Trash'], name: 'Trash') }
+  let(:imap) { instance_double(Net::IMAP) }
+  let(:trash) { Net::IMAP::MailboxList.new([:'\\Trash'], '/', 'Trash') }
   let(:source_id) { 'received@example.test' }
   let(:header) { "Message-ID: <#{source_id}>\r\n\r\n" }
 
@@ -22,7 +22,7 @@ RSpec.describe Imap::DeleteMessagesService do
     allow(imap).to receive(:logout)
     allow(imap).to receive(:disconnect)
     allow(imap).to receive(:uid_search).and_return([42])
-    allow(imap).to receive(:uid_fetch).and_return([double(attr: { 'UID' => 42, 'BODY[HEADER.FIELDS (MESSAGE-ID)]' => header })])
+    allow(imap).to receive(:uid_fetch).and_return([Net::IMAP::FetchData.new(1, { 'UID' => 42, 'BODY[HEADER.FIELDS (MESSAGE-ID)]' => header })])
   end
 
   it 'moves only the exact verified UID to the provider Trash' do
@@ -34,7 +34,7 @@ RSpec.describe Imap::DeleteMessagesService do
   end
 
   it 'moves a verified UID to the provider Junk folder for bulk spam without broad expunge' do
-    allow(imap).to receive(:list).and_return([double(attr: [:'\\Junk'], name: 'Junk')])
+    allow(imap).to receive(:list).and_return([Net::IMAP::MailboxList.new([:'\\Junk'], '/', 'Junk')])
     expect(imap).to receive(:uid_move).with(42, 'Junk')
     expect(imap).not_to receive(:expunge)
 
@@ -43,7 +43,7 @@ RSpec.describe Imap::DeleteMessagesService do
 
   it 'uses a stored UID only when UIDVALIDITY and Message-ID still match' do
     allow(imap).to receive(:responses).and_return('UIDVALIDITY' => [7])
-    expect(imap).not_to receive(:uid_search)
+    expect(imap).to receive(:uid_search).with(['HEADER', 'Message-ID', source_id]).once.and_return([42])
     expect(imap).to receive(:uid_move).with(42, 'Trash')
 
     described_class.new(
@@ -54,7 +54,7 @@ RSpec.describe Imap::DeleteMessagesService do
 
   it 'searches again when the stored UIDVALIDITY is stale' do
     allow(imap).to receive(:responses).and_return('UIDVALIDITY' => [8])
-    expect(imap).to receive(:uid_search).and_return([42])
+    expect(imap).to receive(:uid_search).at_least(:once).and_return([42])
     expect(imap).to receive(:uid_move).with(42, 'Trash')
 
     described_class.new(
@@ -66,7 +66,7 @@ RSpec.describe Imap::DeleteMessagesService do
   it 'rejects an ambiguous Message-ID without mutating the mailbox' do
     allow(imap).to receive(:uid_search).and_return([42, 43])
     allow(imap).to receive(:uid_fetch) do |uid, _fields|
-      [double(attr: { 'UID' => uid, 'BODY[HEADER.FIELDS (MESSAGE-ID)]' => header })]
+      [Net::IMAP::FetchData.new(1, { 'UID' => uid, 'BODY[HEADER.FIELDS (MESSAGE-ID)]' => header })]
     end
     expect(imap).not_to receive(:uid_move)
 
@@ -93,20 +93,38 @@ RSpec.describe Imap::DeleteMessagesService do
     described_class.new(channel: channel, source_ids: [source_id], locations: {}, mode: 'trash').perform
   end
 
-  it 'uses UID EXPUNGE for permanent deletion and never broad EXPUNGE' do
-    expect(imap).to receive(:uid_store).with(42, '+FLAGS.SILENT', [:Deleted])
-    expect(imap).to receive(:uid_expunge).with(42)
-    expect(imap).not_to receive(:expunge)
-
-    described_class.new(channel: channel, source_ids: [source_id], locations: {}, mode: 'permanent').perform
-  end
-
-  it 'does not mark anything deleted when UIDPLUS is unavailable' do
-    allow(imap).to receive(:capability).and_return(%w[IMAP4REV1 MOVE])
-    expect(imap).not_to receive(:uid_store)
-
+  it 'rejects permanent purge without opening a provider connection' do
+    expect(Net::IMAP).not_to receive(:new)
     expect do
       described_class.new(channel: channel, source_ids: [source_id], locations: {}, mode: 'permanent').perform
-    end.to raise_error(described_class::Error, /UID EXPUNGE/)
+    end.to raise_error(described_class::Error, /Unsupported/)
+  end
+
+  it 'refuses a server without MOVE without falling back to delete or expunge' do
+    allow(imap).to receive(:capability).and_return(%w[IMAP4REV1 UIDPLUS])
+    expect(imap).not_to receive(:uid_store)
+    expect(imap).not_to receive(:expunge)
+    expect do
+      described_class.new(channel: channel, source_ids: [source_id], locations: {}, mode: 'trash').perform
+    end.to raise_error(described_class::Error, /UID MOVE/)
+  end
+
+  it 'reports a confirmed message only after checking its destination' do
+    confirmed = []
+    expect(imap).to receive(:uid_move).with(42, 'Trash')
+    described_class.new(channel: channel, source_ids: [source_id], locations: {}, mode: 'trash').perform { |id| confirmed << id }
+    expect(confirmed).to eq([source_id])
+  end
+
+  it 'keeps a missing destination confirmation unconfirmed' do
+    selected = nil
+    allow(imap).to receive(:select) { |folder| selected = folder }
+    allow(imap).to receive(:uid_search) { selected == 'INBOX' ? [42] : [] }
+    allow(imap).to receive(:uid_move)
+    confirmed = []
+    expect do
+      described_class.new(channel: channel, source_ids: [source_id], locations: {}, mode: 'trash').perform { |id| confirmed << id }
+    end.to raise_error(described_class::Error, /did not confirm/)
+    expect(confirmed).to be_empty
   end
 end

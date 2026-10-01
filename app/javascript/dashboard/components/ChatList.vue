@@ -815,41 +815,58 @@ onMounted(() => {
 
 const deleteConversationDialogRef = ref(null);
 const selectedConversationId = ref(null);
+const emailDeleteRequestId = ref(null);
+const emailDeleteLoading = ref(false);
 const selectedEmailConversation = computed(() => {
   const conversation = getConversationById.value(selectedConversationId.value);
   return (
-    inboxesList.value.find(inbox => inbox.id === conversation?.inbox_id)
+    inboxesList.value.find(item => item.id === conversation?.inbox_id)
       ?.channel_type === 'Channel::Email'
   );
 });
 
 async function deleteConversation() {
+  if (emailDeleteLoading.value) return;
+  emailDeleteLoading.value = true;
+  const conversationId = selectedConversationId.value;
   try {
     if (selectedEmailConversation.value) {
       const { data } = await BulkActionsAPI.deleteEmailConversations({
-        ids: [selectedConversationId.value],
+        ids: [conversationId],
         mode: 'trash',
+        request_id: emailDeleteRequestId.value,
       });
-      if (data.results[0]?.error) throw new Error(data.results[0].error);
-      store.commit(
-        mutationTypes.DELETE_CONVERSATION,
-        selectedConversationId.value
-      );
+      const result = data.results?.find(item => item.id === conversationId);
+      if (result?.deleted !== true)
+        throw new Error(
+          result?.error || t('BULK_ACTION.EMAIL_DELETE.UNCONFIRMED')
+        );
+      store.commit(mutationTypes.DELETE_CONVERSATION, conversationId);
       store.dispatch('conversationStats/get');
     } else {
-      await store.dispatch('deleteConversation', selectedConversationId.value);
+      await store.dispatch('deleteConversation', conversationId);
     }
-    redirectToConversationList();
-    selectedConversationId.value = null;
-    deleteConversationDialogRef.value.close();
+    if (selectedConversationId.value === conversationId) {
+      redirectToConversationList();
+      selectedConversationId.value = null;
+      deleteConversationDialogRef.value.close();
+    }
     useAlert(t('CONVERSATION.SUCCESS_DELETE_CONVERSATION'));
   } catch (error) {
-    useAlert(error.message || t('CONVERSATION.FAIL_DELETE_CONVERSATION'));
+    useAlert(
+      error?.response?.data?.error ||
+        error.message ||
+        t('CONVERSATION.FAIL_DELETE_CONVERSATION')
+    );
+  } finally {
+    emailDeleteLoading.value = false;
   }
 }
 
 const handleDelete = conversationId => {
+  if (emailDeleteLoading.value) return;
   selectedConversationId.value = conversationId;
+  emailDeleteRequestId.value = crypto.randomUUID();
   deleteConversationDialogRef.value.open();
 };
 
@@ -980,6 +997,8 @@ watch(appliedFilters, () => resetBulkActions());
     />
     <Dialog
       ref="deleteConversationDialogRef"
+      :is-loading="emailDeleteLoading"
+      :disable-confirm-button="emailDeleteLoading"
       type="alert"
       :title="
         $t('CONVERSATION.DELETE_CONVERSATION.TITLE', {

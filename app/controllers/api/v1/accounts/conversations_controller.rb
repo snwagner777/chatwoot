@@ -132,6 +132,8 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
 
   def destroy
     authorize @conversation, :destroy?
+    return render_could_not_create_error('Use the provider-backed email action to delete an email conversation') if @conversation.inbox.email?
+
     ::Conversations::DeleteService.new(conversation: @conversation, user: Current.user, ip: request.ip).perform
     head :ok
   end

@@ -121,7 +121,6 @@ Rails.application.routes.draw do
           resources :contact_inboxes, only: [] do
             collection do
               post :filter
-              post :bulk_email_delete, to: 'conversations/bulk_email_deletes#create'
             end
           end
           resources :assignable_agents, only: [:index]
@@ -164,6 +163,7 @@ Rails.application.routes.draw do
               get :meta
               get :search
               get :unread_counts, to: 'conversations/unread_counts#index'
+              post :bulk_email_delete, to: 'conversations/bulk_email_deletes#create'
               post :filter
             end
             scope module: :conversations do

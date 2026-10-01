@@ -1,3 +1,5 @@
+/* global axios */
+
 import ApiClient from './ApiClient';
 
 class BulkActionsAPI extends ApiClient {

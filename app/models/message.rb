@@ -42,6 +42,7 @@ class Message < ApplicationRecord
   searchkick callbacks: false if ChatwootApp.advanced_search_allowed?
 
   include MessageFilterHelpers
+  include EmailConversationLock
   include Liquidable
   NUMBER_OF_PERMITTED_ATTACHMENTS = 15
 
