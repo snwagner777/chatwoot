@@ -2,8 +2,8 @@ class Platform::Api::V1::UsersController < PlatformController
   # ref: https://stackoverflow.com/a/45190318/939299
   # set resource is called for other actions already in platform controller
   # we want to add login and token to that chain as well
-  before_action(only: [:login, :token]) { set_resource }
-  before_action(only: [:login, :token]) { validate_platform_app_permissible }
+  before_action(only: [:login, :token, :eps_identity]) { set_resource }
+  before_action(only: [:login, :token, :eps_identity]) { validate_platform_app_permissible }
 
   def show; end
 
@@ -15,7 +15,17 @@ class Platform::Api::V1::UsersController < PlatformController
   end
 
   def login
-    render json: { url: @resource.generate_sso_link }
+    binding = EpsBridge::IdentityBinding.new(@platform_app, @resource).login_binding(params)
+    render json: { url: @resource.generate_sso_link(eps_session: binding) }
+  rescue ArgumentError
+    render json: { error: 'An EPS session binding is required' }, status: :unprocessable_entity
+  end
+
+  def eps_identity
+    account_id = Integer(params[:account_id], exception: false)
+    render json: EpsBridge::IdentityBinding.new(@platform_app, @resource).link!(params[:core_user_id], account_id)
+  rescue ArgumentError
+    render json: { error: 'Invalid EPS identity binding' }, status: :unprocessable_entity
   end
 
   def token; end

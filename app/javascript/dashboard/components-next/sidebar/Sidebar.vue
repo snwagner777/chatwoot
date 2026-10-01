@@ -250,7 +250,9 @@ onMounted(() => {
   store.dispatch('labels/get');
   store.dispatch('inboxes/get');
   store.dispatch('notifications/unReadCount');
-  store.dispatch('teams/get');
+  store.dispatch('teams/get').catch(() => {
+    // This non-blocking sidebar fetch can outlive an authenticated session.
+  });
   store.dispatch('attributes/get');
   store.dispatch('customViews/get', 'conversation');
   store.dispatch('customViews/get', 'contact');

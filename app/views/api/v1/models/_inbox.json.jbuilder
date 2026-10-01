@@ -128,6 +128,7 @@ end
 
 ## API Channel Attributes
 if resource.api?
+  json.provider_delivery_tracking resource.channel.additional_attributes['provider_delivery_tracking'] == true
   json.hmac_token resource.channel.try(:hmac_token) if Current.account_user&.administrator?
   json.secret resource.channel.try(:secret) if Current.account_user&.administrator?
   json.webhook_url resource.channel.try(:webhook_url)

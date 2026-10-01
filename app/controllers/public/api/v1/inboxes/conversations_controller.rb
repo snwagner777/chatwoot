@@ -4,6 +4,7 @@ class Public::Api::V1::Inboxes::ConversationsController < Public::Api::V1::Inbox
 
   def index
     @conversations = @contact_inbox.hmac_verified? ? @contact_inbox.contact.conversations : @contact_inbox.conversations
+    @conversations = EpsBridge::ProviderIsolation.public_conversations(@conversations)
   end
 
   def show; end
@@ -51,6 +52,7 @@ class Public::Api::V1::Inboxes::ConversationsController < Public::Api::V1::Inbox
                     else
                       @contact_inbox.conversations.find_by!(display_id: params[:id])
                     end
+    reject_tracked_provider_conversation
   end
 
   def create_conversation

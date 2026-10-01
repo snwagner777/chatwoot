@@ -1,4 +1,6 @@
-class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController
+# Keep upstream authentication methods intact; EPS-specific logic lives in EpsBridgeSso.
+class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController # rubocop:disable Metrics/ClassLength
+  include EpsBridgeSso
   # Prevent session parameter from being passed
   # Unpermitted parameter: session
   wrap_parameters format: []
@@ -7,6 +9,7 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController
   # same credentials a header-only request would authenticate with.
   before_action :merge_credential_headers, only: [:create]
   before_action :process_sso_auth_token, only: [:create]
+  before_action :eps_login_method_allowed?, only: [:create]
 
   def new
     redirect_to login_page_url(error: 'access-denied')
@@ -41,6 +44,7 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController
 
   def merge_credential_headers
     params[:email] ||= request.headers['email'] unless request.headers['email'].nil?
+    normalize_eps_login_email
     params[:password] ||= request.headers['password'] unless request.headers['password'].nil?
   end
 
@@ -64,6 +68,8 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController
   end
 
   def handle_sso_authentication
+    return unless load_eps_sso_session
+
     return if !@impersonation && enforce_session_limit_for_password_login(@resource)
 
     authenticate_resource_with_sso_token
@@ -82,6 +88,7 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController
     # The short-lived impersonation token would always be that one, so pre-evict to make room.
     make_room_for_impersonation_token if @impersonation
     @token = @resource.create_token(lifespan: @impersonation ? 2.days.to_i : nil)
+    @resource.tokens[@token.client]['eps_session'] = @eps_session if @eps_session
     @resource.save!
 
     sign_in(:user, @resource, store: false, bypass: false)
@@ -129,6 +136,8 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController
   end
 
   def sign_in_mfa_user(user)
+    return render_error(:unauthorized, 'Use EconomyOps to sign in') if user.custom_attributes.key?('eps_bridge')
+
     evict_oldest_session(user) if sessions_limit_reached?(user)
     @resource = user
     @token = @resource.create_token

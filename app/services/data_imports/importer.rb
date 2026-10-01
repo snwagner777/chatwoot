@@ -495,7 +495,7 @@ class DataImports::Importer
       end
 
       refreshed_entries = batch_builder.refresh(entries).entries
-      persist_message_entries(conversation, contact, refreshed_entries)
+      with_email_conversation_lock(conversation) { persist_message_entries(conversation, contact, refreshed_entries) }
     end
   end
 
@@ -685,6 +685,14 @@ class DataImports::Importer
     fail_message(conversation, entry.source_id, entry.part, e)
   end
 
+  # insert_all! bypasses Message callbacks, so email imports must participate in
+  # the same per-conversation lock used by provider-backed deletion.
+  def with_email_conversation_lock(conversation, &)
+    return yield unless conversation.inbox.email?
+
+    Conversation.find(conversation.id).with_lock(&)
+  end
+
   def create_message(conversation, contact, entry)
     validate_message_payload!(entry.part)
     content = content_for(entry.part)
@@ -693,7 +701,7 @@ class DataImports::Importer
     attrs = message_attributes(conversation, contact, entry.part, entry.source_id, content)
     message = entry.message
     unless message
-      result = Message.insert_all!([attrs], returning: %w[id])
+      result = with_email_conversation_lock(conversation) { Message.insert_all!([attrs], returning: %w[id]) }
       message = Message.find(result.rows.first.first)
     end
     record_message_mapping(entry, message)

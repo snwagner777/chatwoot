@@ -163,6 +163,7 @@ Rails.application.routes.draw do
               get :meta
               get :search
               get :unread_counts, to: 'conversations/unread_counts#index'
+              post :bulk_email_delete, to: 'conversations/bulk_email_deletes#create'
               post :filter
             end
             scope module: :conversations do
@@ -602,6 +603,7 @@ Rails.application.routes.draw do
           member do
             get :login
             post :token
+            post :eps_identity
           end
         end
         resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do

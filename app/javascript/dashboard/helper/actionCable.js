@@ -29,7 +29,13 @@ const getFilteredUnreadCountsRefreshRetryDelay = () =>
 class ActionCableConnector extends BaseActionCableConnector {
   constructor(app, pubsubToken) {
     const { websocketURL = '' } = window.chatwootConfig || {};
-    super(app, pubsubToken, websocketURL);
+    super(
+      app,
+      pubsubToken,
+      websocketURL,
+      undefined,
+      AuthAPI.getAuthData()?.client
+    );
     this.CancelTyping = [];
     this.lastUnreadCountsFetchAt = null;
     this.unreadCountsFetchTimer = null;

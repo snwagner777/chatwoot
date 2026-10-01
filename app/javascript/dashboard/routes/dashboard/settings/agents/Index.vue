@@ -3,6 +3,7 @@ import { useAlert } from 'dashboard/composables';
 import { computed, onMounted, ref } from 'vue';
 import Avatar from 'next/avatar/Avatar.vue';
 import { useI18n } from 'vue-i18n';
+import { useAccount } from 'dashboard/composables/useAccount';
 import { picoSearch } from '@chatwoot/pico-search';
 import {
   useStoreGetters,
@@ -19,6 +20,10 @@ import Button from 'dashboard/components-next/button/Button.vue';
 const getters = useStoreGetters();
 const store = useStore();
 const { t } = useI18n();
+const { currentAccount } = useAccount();
+const epsManaged = computed(
+  () => currentAccount.value?.custom_attributes?.eps_managed === true
+);
 
 const loading = ref({});
 const showAddPopup = ref(false);
@@ -167,6 +172,7 @@ const confirmDeletion = () => {
         </template>
         <template #actions>
           <Button
+            v-if="!epsManaged"
             :label="$t('AGENT_MGMT.HEADER_BTN_TXT')"
             size="sm"
             @click="openAddPopup"
@@ -175,6 +181,9 @@ const confirmDeletion = () => {
       </BaseSettingsHeader>
     </template>
     <template #body>
+      <p v-if="epsManaged" class="text-body-main text-n-slate-11 py-3">
+        {{ $t('AGENT_MGMT.EPS_MANAGED_DESCRIPTION') }}
+      </p>
       <span
         v-if="!filteredAgentList.length && searchQuery"
         class="flex-1 flex items-center justify-center py-20 text-center text-body-main !text-base text-n-slate-11"
@@ -255,7 +264,7 @@ const confirmDeletion = () => {
           </div>
           <div class="flex justify-end gap-3">
             <Button
-              v-if="showEditAction(agent)"
+              v-if="!epsManaged && showEditAction(agent)"
               v-tooltip.top="$t('AGENT_MGMT.EDIT.BUTTON_TEXT')"
               icon="i-woot-edit-pen"
               slate
@@ -263,7 +272,7 @@ const confirmDeletion = () => {
               @click="openEditPopup(agent)"
             />
             <Button
-              v-if="showDeleteAction(agent)"
+              v-if="!epsManaged && showDeleteAction(agent)"
               v-tooltip.top="$t('AGENT_MGMT.DELETE.BUTTON_TEXT')"
               icon="i-woot-bin"
               slate

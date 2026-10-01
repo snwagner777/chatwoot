@@ -1,5 +1,6 @@
 class Api::V1::AccountsController < Api::BaseController
   include AuthHelper
+  include OperatorThemeConcern
 
   skip_before_action :authenticate_user!, :set_current_user, :handle_with_exception,
                      only: [:create], raise: false
@@ -9,6 +10,7 @@ class Api::V1::AccountsController < Api::BaseController
   before_action :fetch_account, except: [:create]
   before_action :validate_token_api_access, if: :authenticate_by_access_token?, except: [:create]
   before_action :check_authorization, except: [:create]
+  before_action :validate_operator_theme, only: [:update]
 
   rescue_from CustomExceptions::Account::InvalidEmail,
               CustomExceptions::Account::InvalidParams,
@@ -57,6 +59,7 @@ class Api::V1::AccountsController < Api::BaseController
   def update
     @account.assign_attributes(account_params.slice(:name, :locale, :domain, :support_email))
     @account.custom_attributes.merge!(custom_attributes_params)
+    apply_operator_theme
     @account.settings.merge!(settings_params)
     @account.custom_attributes['onboarding_step'] = 'invite_team' if @account.custom_attributes['onboarding_step'] == 'account_update'
     @account.save!

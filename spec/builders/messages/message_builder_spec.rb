@@ -16,6 +16,15 @@ describe Messages::MessageBuilder do
   end
 
   describe '#perform' do
+    it 'treats multipart private=false as a public email while preparing the body' do
+      email_inbox = create(:inbox, :with_email, account: account)
+      email_conversation = create(:conversation, inbox: email_inbox, account: account)
+      multipart = ActionController::Parameters.new(content: 'Public **email**', private: 'false', message_type: 'outgoing')
+      message = described_class.new(user, email_conversation, multipart).perform
+      expect(message).not_to be_private
+      expect(message.content_attributes.dig('email', 'html_content', 'full')).to include('<strong>email</strong>')
+    end
+
     it 'creates a message' do
       message = message_builder
       expect(message.content).to eq params[:content]

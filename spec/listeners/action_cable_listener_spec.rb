@@ -38,12 +38,23 @@ describe ActionCableListener do
   end
 
   describe '#message_created' do
-    let(:event_name) { :'message.created' }
+    let!(:event) { Events::Base.new(event_name, Time.zone.now, message: message) }
     let!(:message) do
       create(:message, message_type: 'outgoing',
                        account: account, inbox: inbox, conversation: conversation)
     end
-    let!(:event) { Events::Base.new(event_name, Time.zone.now, message: message) }
+    let(:event_name) { :'message.created' }
+
+    it 'does not broadcast provider-tracked messages to any contact token, including verified fan-out' do
+      channel = create(:channel_api, account: account, additional_attributes: { provider_delivery_tracking: true })
+      provider_conversation = create(:conversation, account: account, inbox: channel.inbox)
+      provider_conversation.contact_inbox.update!(hmac_verified: true)
+      create(:contact_inbox, contact: provider_conversation.contact, inbox: inbox, hmac_verified: true)
+      provider_message = create(:message, account: account, inbox: channel.inbox, conversation: provider_conversation, message_type: :outgoing)
+      event = Events::Base.new(:'message.created', Time.zone.now, message: provider_message)
+      expect(ActionCableBroadcastJob).to receive(:perform_later).with([admin.pubsub_token], 'message.created', kind_of(Hash))
+      listener.message_created(event)
+    end
 
     it 'sends message to account admins, inbox agents and the contact' do
       # HACK: to reload conversation inbox members

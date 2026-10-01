@@ -16,6 +16,8 @@ permissions:
 
 jobs:
   deployment_check:
+    # Heroku review apps belong to upstream; this fork uses Railway checks.
+    if: github.repository == 'chatwoot/chatwoot'
     name: Check Deployment
     runs-on: ubuntu-latest
     steps:

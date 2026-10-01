@@ -47,6 +47,7 @@ export default {
     ssoAuthToken: { type: String, default: '' },
     ssoAccountId: { type: String, default: '' },
     ssoConversationId: { type: String, default: '' },
+    ssoDestination: { type: String, default: '' },
     email: { type: String, default: '' },
     authError: { type: String, default: '' },
   },
@@ -182,6 +183,7 @@ export default {
         sso_auth_token: this.ssoAuthToken,
         ssoAccountId: this.ssoAccountId,
         ssoConversationId: this.ssoConversationId,
+        ssoDestination: this.ssoDestination,
       };
 
       login(credentials)
@@ -254,6 +256,7 @@ export default {
         sso_auth_token: this.ssoAuthToken,
         ssoAccountId: this.ssoAccountId,
         ssoConversationId: this.ssoConversationId,
+        ssoDestination: this.ssoDestination,
         ...extraParams,
       };
 

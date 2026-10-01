@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { useMessageContext } from './provider.js';
 import { hasOneDayPassed } from 'shared/helpers/timeHelper';
 import { ORIENTATION, MESSAGE_STATUS } from './constants';
+import { useInbox } from 'dashboard/composables/useInbox';
 
 defineProps({
   error: { type: String, required: true },
@@ -16,8 +17,10 @@ const { orientation, status, createdAt, content, attachments } =
   useMessageContext();
 
 const { t } = useI18n();
+const { inbox } = useInbox();
 
 const canRetry = computed(() => {
+  if (inbox.value?.providerDeliveryTracking) return false;
   const hasContent = content.value !== null;
   const hasAttachments = attachments.value && attachments.value.length > 0;
   return !hasOneDayPassed(createdAt.value) && (hasContent || hasAttachments);

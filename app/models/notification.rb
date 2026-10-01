@@ -29,6 +29,7 @@
 
 class Notification < ApplicationRecord
   include MessageFormatHelper
+  include EpsNativeNotification
   belongs_to :account
   belongs_to :user
 

@@ -4,12 +4,16 @@ class RoomChannel < ApplicationCable::Channel
     # for now going ahead with guard clauses in update_subscription and broadcast_presence
     current_user
     current_account
+    return unless verify_eps_stream
+
     ensure_stream
     update_subscription
     broadcast_presence
   end
 
   def update_presence
+    return unless verify_eps_stream
+
     update_subscription
     broadcast_presence
   end
@@ -25,8 +29,48 @@ class RoomChannel < ApplicationCable::Channel
   end
 
   def ensure_stream
+    if @current_user.is_a?(Contact)
+      stream_from(pubsub_token, coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
+      return
+    end
+    if @current_user.is_a?(User) && EpsBridge::SessionVerifier.new(@current_user).managed?
+      stream_from(pubsub_token, coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
+      stream_from("account_#{@current_account.id}", coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
+      return
+    end
     stream_from pubsub_token
     stream_from "account_#{@current_account.id}" if @current_account.present? && @current_user.is_a?(User)
+  end
+
+  def transmit_eps_event(data)
+    transmit(data) if verify_eps_stream
+  end
+
+  def verify_eps_stream
+    return verify_provider_contact_stream if @current_user.is_a?(Contact)
+    return true unless @current_user.is_a?(User)
+
+    @current_user.reload
+    verifier = EpsBridge::SessionVerifier.new(@current_user)
+    return true unless verifier.managed?
+
+    return true if verifier.active_client?(params[:client_id], @current_account&.id)
+
+    stop_all_streams
+    reject
+    false
+  end
+
+  def verify_provider_contact_stream
+    return true unless EpsBridge::ProviderIsolation.tracked?(@current_contact_inbox.reload.inbox)
+
+    stop_all_streams
+    reject
+    false
+  rescue ActiveRecord::RecordNotFound
+    stop_all_streams
+    reject
+    false
   end
 
   def update_subscription
@@ -41,7 +85,8 @@ class RoomChannel < ApplicationCable::Channel
 
   def current_user
     @current_user ||= if params[:user_id].blank?
-                        ContactInbox.find_by!(pubsub_token: pubsub_token).contact
+                        @current_contact_inbox = ContactInbox.find_by!(pubsub_token: pubsub_token)
+                        @current_contact_inbox.contact
                       else
                         User.find_by!(pubsub_token: pubsub_token, id: params[:user_id])
                       end

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import Auth from 'dashboard/api/auth';
 import { useMapGetter } from 'dashboard/composables/store';
 import { useI18n } from 'vue-i18n';
+import { useAccount } from 'dashboard/composables/useAccount';
 import Avatar from 'next/avatar/Avatar.vue';
 import SidebarProfileMenuStatus from './SidebarProfileMenuStatus.vue';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
@@ -26,6 +27,7 @@ defineOptions({
 });
 
 const { t } = useI18n();
+const { currentAccount } = useAccount();
 
 const currentUser = useMapGetter('getCurrentUser');
 const currentUserAvailability = useMapGetter('getCurrentUserAvailability');
@@ -52,6 +54,14 @@ const toggleChatSupport = () => {
 
 const menuItems = computed(() => {
   return [
+    {
+      show: Boolean(currentAccount.value?.eps_app_url),
+      showOnCustomBrandedInstance: true,
+      label: t('SIDEBAR_ITEMS.RETURN_TO_EPS'),
+      icon: 'i-lucide-arrow-left',
+      link: currentAccount.value?.eps_app_url,
+      nativeLink: true,
+    },
     {
       show: showChatSupport.value,
       showOnCustomBrandedInstance: false,
