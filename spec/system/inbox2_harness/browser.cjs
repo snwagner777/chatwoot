@@ -89,7 +89,7 @@ const bounded = (entries, entry) => {
         waitUntil: 'domcontentloaded',
         timeout: 120000,
       });
-      await page.locator('input[type="email"]').waitFor({
+      await page.getByTestId('email_input').waitFor({
         state: 'visible',
         timeout: 120000,
       });

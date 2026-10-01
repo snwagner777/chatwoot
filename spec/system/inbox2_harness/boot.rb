@@ -6,7 +6,7 @@ class Inbox2SyntheticHarness < Rails::Railtie
   config.after_initialize do
     require 'webmock'
     WebMock.enable!
-    WebMock.disable_net_connect!(allow_localhost: true)
+    WebMock.disable_net_connect!(allow_localhost: true, net_http_connect_on_start: %w[localhost 127.0.0.1])
     WebMock.stub_request(:post, 'https://core.synthetic.test/api/v1/core/inbox2/session-status').to_return do |request|
       payload = request.headers['X-Eps-Bridge-Payload']
       supplied = request.headers['X-Eps-Bridge-Signature']
