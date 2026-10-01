@@ -19,6 +19,7 @@ import BulkAgentActions from './BulkAgentActions.vue';
 import BulkUpdateActions from './BulkUpdateActions.vue';
 import BulkLabelActions from './BulkLabelActions.vue';
 import BulkTeamActions from './BulkTeamActions.vue';
+import BulkEmailDeleteActions from './BulkEmailDeleteActions.vue';
 import CustomSnoozeModal from 'dashboard/components/CustomSnoozeModal.vue';
 
 const props = defineProps({
@@ -199,6 +200,10 @@ onUnmounted(() => {
           <BulkTeamActions
             :conversation-count="conversations.length"
             @select="onAssignTeam"
+          />
+          <BulkEmailDeleteActions
+            :conversation-ids="selectedConversations"
+            :inbox-ids="selectedInboxes"
           />
         </div>
       </div>

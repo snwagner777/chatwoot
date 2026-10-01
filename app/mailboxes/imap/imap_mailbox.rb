@@ -21,11 +21,19 @@ class Imap::ImapMailbox
       find_or_create_contact
       find_or_create_conversation
       create_message
+      attach_imap_location
       add_attachments_to_message
     end
   end
 
   private
+
+  def attach_imap_location
+    return if @message.blank?
+
+    location = @inbound_mail.instance_variable_get(:@chatwoot_imap_location)
+    @message.content_attributes[:imap_location] = location if location.present?
+  end
 
   def load_account
     @account = @channel.account

@@ -121,6 +121,7 @@ Rails.application.routes.draw do
           resources :contact_inboxes, only: [] do
             collection do
               post :filter
+              post :bulk_email_delete, to: 'conversations/bulk_email_deletes#create'
             end
           end
           resources :assignable_agents, only: [:index]

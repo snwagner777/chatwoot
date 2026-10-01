@@ -54,7 +54,7 @@ class Imap::BaseFetchEmailService
   end
 
   def process_message_id(message_id_with_seq)
-    seq_no, message_id = message_id_with_seq
+    seq_no, message_id, uid = message_id_with_seq
 
     if message_id.blank?
       Rails.logger.info "[IMAP::FETCH_EMAIL_SERVICE] Empty message id for #{channel.email} with seq no. <#{seq_no}>."
@@ -73,6 +73,12 @@ class Imap::BaseFetchEmailService
     end
 
     inbound_mail = build_mail_from_string(mail_str)
+    return if inbound_mail.message_id != message_id
+
+    uid_validity = imap_client.responses['UIDVALIDITY']&.last
+    if uid.present? && uid_validity.present?
+      inbound_mail.instance_variable_set(:@chatwoot_imap_location, { 'mailbox' => 'INBOX', 'uid' => uid, 'uid_validity' => uid_validity })
+    end
     mail_info_logger(inbound_mail, seq_no)
     inbound_mail
   end
@@ -99,7 +105,7 @@ class Imap::BaseFetchEmailService
   def append_message_ids_for_batch(batch, message_ids_with_seq)
     # Fetch only message-id only without mail body or contents.
     Rails.logger.info "[IMAP::FETCH_EMAIL_SERVICE] Starting header batch of #{batch.length} for #{channel.email}"
-    batch_message_ids = imap_client.fetch(batch, 'BODY.PEEK[HEADER]')
+    batch_message_ids = imap_client.fetch(batch, ['UID', 'BODY.PEEK[HEADER]'])
     Rails.logger.info "[IMAP::FETCH_EMAIL_SERVICE] Fetching the batch for #{channel.email}. Found #{batch_message_ids&.length} messages."
 
     # .fetch returns an array of Net::IMAP::FetchData or nil
@@ -126,7 +132,7 @@ class Imap::BaseFetchEmailService
     return nil if message_id.blank?
     return nil if email_already_present?(channel, message_id)
 
-    [data.seqno, message_id]
+    [data.seqno, message_id, data.attr['UID']]
   end
 
   # Sends a SEARCH command to search the mailbox for messages that were

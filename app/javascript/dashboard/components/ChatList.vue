@@ -40,6 +40,8 @@ import languages from 'dashboard/components/widgets/conversation/advancedFilterI
 import countries from 'shared/constants/countries';
 import { generateValuesForEditCustomViews } from 'dashboard/helper/customViewsHelper';
 import { useConversationRoutePath } from 'dashboard/composables/useConversationRoutePath';
+import BulkActionsAPI from 'dashboard/api/bulkActions';
+import mutationTypes from 'dashboard/store/mutation-types';
 import {
   getUserPermissions,
   filterItemsByPermission,
@@ -813,16 +815,36 @@ onMounted(() => {
 
 const deleteConversationDialogRef = ref(null);
 const selectedConversationId = ref(null);
+const selectedEmailConversation = computed(() => {
+  const conversation = getConversationById.value(selectedConversationId.value);
+  return (
+    inboxesList.value.find(inbox => inbox.id === conversation?.inbox_id)
+      ?.channel_type === 'Channel::Email'
+  );
+});
 
 async function deleteConversation() {
   try {
-    await store.dispatch('deleteConversation', selectedConversationId.value);
+    if (selectedEmailConversation.value) {
+      const { data } = await BulkActionsAPI.deleteEmailConversations({
+        ids: [selectedConversationId.value],
+        mode: 'trash',
+      });
+      if (data.results[0]?.error) throw new Error(data.results[0].error);
+      store.commit(
+        mutationTypes.DELETE_CONVERSATION,
+        selectedConversationId.value
+      );
+      store.dispatch('conversationStats/get');
+    } else {
+      await store.dispatch('deleteConversation', selectedConversationId.value);
+    }
     redirectToConversationList();
     selectedConversationId.value = null;
     deleteConversationDialogRef.value.close();
     useAlert(t('CONVERSATION.SUCCESS_DELETE_CONVERSATION'));
   } catch (error) {
-    useAlert(t('CONVERSATION.FAIL_DELETE_CONVERSATION'));
+    useAlert(error.message || t('CONVERSATION.FAIL_DELETE_CONVERSATION'));
   }
 }
 
@@ -964,7 +986,11 @@ watch(appliedFilters, () => resetBulkActions());
           conversationId: selectedConversationId,
         })
       "
-      :description="$t('CONVERSATION.DELETE_CONVERSATION.DESCRIPTION')"
+      :description="
+        selectedEmailConversation
+          ? $t('BULK_ACTION.EMAIL_DELETE.INDIVIDUAL_DESCRIPTION')
+          : $t('CONVERSATION.DELETE_CONVERSATION.DESCRIPTION')
+      "
       :confirm-button-label="$t('CONVERSATION.DELETE_CONVERSATION.CONFIRM')"
       @confirm="deleteConversation"
       @close="selectedConversationId = null"
