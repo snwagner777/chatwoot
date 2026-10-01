@@ -75,12 +75,16 @@ class Imap::BaseFetchEmailService
     inbound_mail = build_mail_from_string(mail_str)
     return if inbound_mail.message_id != message_id
 
-    uid_validity = imap_client.responses['UIDVALIDITY']&.last
-    if uid.present? && uid_validity.present?
-      inbound_mail.instance_variable_set(:@chatwoot_imap_location, { 'mailbox' => 'INBOX', 'uid' => uid, 'uid_validity' => uid_validity })
-    end
+    attach_imap_location(inbound_mail, uid)
     mail_info_logger(inbound_mail, seq_no)
     inbound_mail
+  end
+
+  def attach_imap_location(inbound_mail, uid)
+    uid_validity = imap_client.responses['UIDVALIDITY']&.last
+    return unless uid.present? && uid_validity.present?
+
+    inbound_mail.instance_variable_set(:@chatwoot_imap_location, { 'mailbox' => 'INBOX', 'uid' => uid, 'uid_validity' => uid_validity })
   end
 
   # Sends a FETCH command to retrieve data associated with a message in the mailbox.
