@@ -25,6 +25,23 @@ describe('#URL Helpers', () => {
       ).toBe('/app/accounts/7500/conversations/752');
     });
 
+    it('opens settings only in the authenticated requested account', () => {
+      expect(
+        getLoginRedirectURL({
+          ssoAccountId: '7500',
+          ssoDestination: 'settings',
+          user: { accounts: [{ id: 7500, name: 'Allowed' }] },
+        })
+      ).toBe('/app/accounts/7500/settings/inboxes');
+      expect(
+        getLoginRedirectURL({
+          ssoAccountId: '7500',
+          ssoDestination: 'settings',
+          user: { accounts: [{ id: 7501, name: 'Other' }] },
+        })
+      ).toBe('/app/accounts/7501/dashboard');
+    });
+
     it('should return default URL if account id is not present', () => {
       expect(getLoginRedirectURL({ ssoAccountId: '7500', user: {} })).toBe(
         '/app/'

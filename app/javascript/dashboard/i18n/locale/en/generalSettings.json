@@ -35,6 +35,11 @@
       }
     },
     "FORM": {
+      "OPERATOR_THEME": {
+        "LABEL": "Operator theme",
+        "NEUTRAL": "Neutral",
+        "ECONOMYOPS": "EconomyOps"
+      },
       "ERROR": "Please fix form errors",
       "GENERAL_SECTION": {
         "TITLE": "General settings",

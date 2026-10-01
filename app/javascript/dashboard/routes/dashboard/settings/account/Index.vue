@@ -44,6 +44,7 @@ export default {
       locale: 'en',
       domain: '',
       supportEmail: '',
+      operatorTheme: 'neutral',
       features: {},
     };
   },
@@ -110,8 +111,15 @@ export default {
   methods: {
     async initializeAccount() {
       try {
-        const { name, locale, id, domain, support_email, features } =
-          this.getAccount(this.accountId);
+        const {
+          name,
+          locale,
+          id,
+          domain,
+          support_email,
+          features,
+          custom_attributes,
+        } = this.getAccount(this.accountId);
 
         const effectiveLocale = this.uiSettings?.locale || locale;
         if (effectiveLocale) {
@@ -122,6 +130,7 @@ export default {
         this.id = id;
         this.domain = domain;
         this.supportEmail = support_email;
+        this.operatorTheme = custom_attributes?.operator_theme || 'neutral';
         this.features = features;
       } catch (error) {
         // Ignore error
@@ -140,6 +149,8 @@ export default {
           name: this.name,
           domain: this.domain,
           support_email: this.supportEmail,
+          operator_theme:
+            this.operatorTheme === 'neutral' ? '' : this.operatorTheme,
         });
         // If user locale is set, update the locale with user locale
         const updatedLocale = this.uiSettings?.locale || this.locale;
@@ -183,6 +194,19 @@ export default {
               :placeholder="$t('GENERAL_SETTINGS.FORM.NAME.PLACEHOLDER')"
               @blur="v$.name.$touch"
             />
+          </WithLabel>
+          <WithLabel
+            name="operator-theme"
+            :label="$t('GENERAL_SETTINGS.FORM.OPERATOR_THEME.LABEL')"
+          >
+            <select v-model="operatorTheme" class="!mb-0 text-sm">
+              <option value="neutral">
+                {{ $t('GENERAL_SETTINGS.FORM.OPERATOR_THEME.NEUTRAL') }}
+              </option>
+              <option value="economyops">
+                {{ $t('GENERAL_SETTINGS.FORM.OPERATOR_THEME.ECONOMYOPS') }}
+              </option>
+            </select>
           </WithLabel>
           <WithLabel
             name="site-language"
