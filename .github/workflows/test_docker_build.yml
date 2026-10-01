@@ -5,12 +5,23 @@ on:
     branches:
       - develop
       - master
+      - codex/inbox2-v4.18.0
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  runtime-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.4'
+      - name: Test Railway startup contract without network or credentials
+        run: python3 docker/entrypoints/spec/railway_runtime_test.py
+
   test-build:
     strategy:
       fail-fast: false
@@ -37,6 +48,9 @@ jobs:
           context: .
           file: docker/Dockerfile
           platforms: ${{ matrix.platform }}
+          build-args: |
+            RAILWAY_GIT_COMMIT_SHA=${{ github.sha }}
+            CW_EDITION=ce
           push: false
           load: false
           cache-from: type=gha,scope=${{ matrix.platform }}

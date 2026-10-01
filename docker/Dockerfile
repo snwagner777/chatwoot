@@ -1,6 +1,10 @@
 # pre-build stage
-FROM node:24-alpine as node
+FROM node:24.13.0-alpine@sha256:cd6fb7efa6490f039f3471a189214d5f548c11df1ff9e5b181aa49e22c14383e AS node
 FROM ruby:3.4.4-alpine3.21 AS pre-builder
+
+ARG CW_EDITION="ce"
+ENV CW_EDITION=${CW_EDITION}
+ARG RAILWAY_GIT_COMMIT_SHA
 
 ARG NODE_VERSION="24.13.0"
 ARG PNPM_VERSION="10.2.0"
@@ -72,9 +76,12 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
   fi
 
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm i
+RUN pnpm install --frozen-lockfile
 
 COPY . /app
+
+# Preserve the existing Railway Community edition; do not ship enterprise code.
+RUN if [ "$CW_EDITION" = "ce" ]; then rm -rf enterprise; fi
 
 # creating a log directory so that image wont fail when RAILS_LOG_TO_STDOUT is false
 # https://github.com/chatwoot/chatwoot/issues/701
@@ -87,7 +94,9 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
   fi
 
 # Generate .git_sha file with current commit hash
-RUN git rev-parse HEAD > /app/.git_sha
+RUN if [ -n "$RAILWAY_GIT_COMMIT_SHA" ]; then \
+  printf '%s\n' "$RAILWAY_GIT_COMMIT_SHA"; \
+  else git rev-parse HEAD; fi > /app/.git_sha
 
 # Remove unnecessary files
 RUN rm -rf /gems/ruby/3.4.0/cache/*.gem \
@@ -97,6 +106,9 @@ RUN rm -rf /gems/ruby/3.4.0/cache/*.gem \
 
 # final build stage
 FROM ruby:3.4.4-alpine3.21
+
+ARG CW_EDITION="ce"
+ENV CW_EDITION=${CW_EDITION}
 
 ARG NODE_VERSION="24.13.0"
 ARG PNPM_VERSION="10.2.0"
@@ -126,6 +138,7 @@ RUN apk update && apk add --no-cache \
   tzdata \
   postgresql-client \
   imagemagick \
+  multirun=1.0.0-r2 \
   git \
   vips \
   && gem install bundler -v "$BUNDLER_VERSION"
@@ -152,4 +165,8 @@ COPY --from=pre-builder /app/.git_sha /app/.git_sha
 
 WORKDIR /app
 
+RUN mkdir -p /app/storage /app/tmp/pids
+
+VOLUME ["/app/storage"]
 EXPOSE 3000
+CMD ["/bin/sh", "docker/entrypoints/railway.sh"]
