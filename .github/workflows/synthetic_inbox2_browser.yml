@@ -80,6 +80,7 @@ jobs:
           done
           "$ready"
           bundle exec ruby -r./spec/system/inbox2_harness/boot.rb bin/rails runner spec/system/inbox2_harness/smtp_smoke.rb
+          node --test spec/system/inbox2_harness/diagnostics.test.cjs
           node spec/system/inbox2_harness/browser.cjs
       - name: Upload only synthetic screenshots and safe results
         if: always()

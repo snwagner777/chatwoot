@@ -1,6 +1,7 @@
 // Runs only against the disposable CI fixture. Artifacts never include auth state.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { assetPath, errorSummary } = require('./diagnostics.cjs');
 const { chromium } = require(process.env.INBOX2_PLAYWRIGHT_PATH);
 const root = process.env.INBOX2_QA_TMP_DIR;
 assert.equal(process.env.INBOX2_SYNTHETIC_QA, '1');
@@ -10,6 +11,10 @@ const report = {
   coreCallback: 'HMAC-verified synthetic stub; not real Core E2E',
   checks: [],
   pageErrors: [],
+  consoleErrors: [],
+  assetResponses: [],
+  failedAssets: [],
+  stage: 'launch',
 };
 const record = name => report.checks.push({ name, passed: true });
 const api = (page, url, method = 'get', data) =>
@@ -27,8 +32,9 @@ const api = (page, url, method = 'get', data) =>
     },
     { url, method, data }
   );
-const redact = text =>
-  String(text).replace(/sso_auth_token=[^&\s]+/g, 'sso_auth_token=REDACTED');
+const bounded = (entries, entry) => {
+  if (entries.length < 100) entries.push(entry);
+};
 (async () => {
   const browser = await chromium.launch({ headless: true });
   let lastPage;
@@ -49,8 +55,47 @@ const redact = text =>
       const page = await context.newPage();
       lastPage = page;
       page.on('pageerror', error =>
-        report.pageErrors.push(redact(error.message))
+        bounded(report.pageErrors, errorSummary(error))
       );
+      page.on('console', message => {
+        if (message.type() === 'error')
+          bounded(report.consoleErrors, {
+            ...errorSummary({ message: message.text() }),
+            asset: assetPath(message.location().url),
+          });
+      });
+      page.on('response', response => {
+        const asset = assetPath(response.url());
+        if (
+          asset &&
+          ['script', 'stylesheet'].includes(
+            response.request().resourceType()
+          ) &&
+          (response.status() >= 400 ||
+            /\/entrypoints\/|\/@vite\/client/.test(asset))
+        )
+          bounded(report.assetResponses, { asset, status: response.status() });
+      });
+      page.on('requestfailed', request => {
+        const asset = assetPath(request.url());
+        if (asset)
+          bounded(report.failedAssets, {
+            asset,
+            ...errorSummary({ message: request.failure()?.errorText }),
+          });
+      });
+      report.stage = `account-${index + 1}-anonymous-app-render`;
+      await page.goto('http://127.0.0.1:4310/app/login', {
+        waitUntil: 'domcontentloaded',
+        timeout: 120000,
+      });
+      await page.locator('input[type="email"]').waitFor({
+        state: 'visible',
+        timeout: 120000,
+      });
+      record(`Account ${index + 1} application renders before SSO`);
+      report.stage = `account-${index + 1}-sso`;
+
       await page.goto(user.url, {
         waitUntil: 'domcontentloaded',
         timeout: 120000,
@@ -200,7 +245,7 @@ const redact = text =>
     }
     assert.deepEqual(report.pageErrors, []);
   } catch (error) {
-    report.failure = redact(error.stack || error.message);
+    report.failure = errorSummary(error);
     if (lastPage && !lastPage.isClosed())
       await lastPage
         .screenshot({ path: `${root}/artifacts/synthetic-failure.png` })
