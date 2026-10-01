@@ -1,5 +1,6 @@
 {
   "AGENT_MGMT": {
+    "EPS_MANAGED_DESCRIPTION": "Manage workforce access in EPS Admin. Assign existing members to mailboxes from Inbox settings.",
     "HEADER": "Agents",
     "HEADER_BTN_TXT": "Add Agent",
     "LOADING": "Fetching Agent List",

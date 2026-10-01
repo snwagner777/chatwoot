@@ -195,7 +195,8 @@ class ActionCableListener < BaseListener
                            user.pubsub_token
                          end
 
-    tokens = user_tokens(account, conversation.inbox.members) + [conversation.contact_inbox.pubsub_token]
+    contact_tokens = EpsBridge::ProviderIsolation.tracked?(conversation.inbox) ? [] : [conversation.contact_inbox.pubsub_token]
+    tokens = user_tokens(account, conversation.inbox.members) + contact_tokens
     current_user_token.present? ? tokens - [current_user_token] : tokens
   end
 
@@ -214,9 +215,7 @@ class ActionCableListener < BaseListener
   end
 
   def contact_inbox_tokens(contact_inbox)
-    contact = contact_inbox.contact
-
-    contact_inbox.hmac_verified? ? contact.contact_inboxes.where(hmac_verified: true).filter_map(&:pubsub_token) : [contact_inbox.pubsub_token]
+    EpsBridge::ProviderIsolation.contact_tokens(contact_inbox)
   end
 
   def broadcast(account, tokens, event_name, data)

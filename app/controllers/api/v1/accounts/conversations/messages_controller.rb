@@ -1,5 +1,7 @@
 class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::Conversations::BaseController
   before_action :ensure_api_inbox, only: :update
+  before_action :require_provider_status_proof, only: :update
+  before_action :validate_provider_creation_fields, only: :create
 
   def index
     @messages = message_finder.perform
@@ -7,7 +9,7 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
 
   def create
     user = Current.user || @resource
-    mb = Messages::MessageBuilder.new(user, @conversation, params)
+    mb = Messages::MessageBuilder.new(user, @conversation, params, provider_verified: trusted_provider_operation?)
     @message = mb.perform
   rescue StandardError => e
     render_could_not_create_error(e.message)
@@ -27,6 +29,9 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
 
   def retry
     return if message.blank?
+    if message.provider_delivery_tracking?
+      return render json: { error: 'Provider-tracked messages cannot be retried automatically' }, status: :unprocessable_entity
+    end
 
     ::SendReplyJob.perform_later(message.id) if claim_message_retry
   rescue StandardError => e
@@ -55,6 +60,42 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
   end
 
   private
+
+  def provider_tracked_inbox?
+    @conversation.inbox.api? && @conversation.inbox.channel.additional_attributes['provider_delivery_tracking'] == true
+  end
+
+  def require_provider_status_proof
+    return unless provider_tracked_inbox?
+    return if trusted_provider_operation?
+
+    render json: { error: 'Delivery status requires trusted provider proof' }, status: :forbidden
+  end
+
+  def validate_provider_creation_fields
+    return unless provider_tracked_inbox?
+    return if trusted_provider_operation?
+    return if ordinary_provider_reply?
+
+    render json: { error: 'Provider-owned message fields require trusted proof' }, status: :forbidden
+  rescue JSON::ParserError
+    render json: { error: 'Invalid message attributes' }, status: :unprocessable_entity
+  end
+
+  def ordinary_provider_reply?
+    return false unless (params[:message_type] || 'outgoing') == 'outgoing'
+    return false if [:source_id, :sender_type, :sender_id].any? { |key| params[key].present? }
+
+    !provider_owned_attributes?
+  end
+
+  def provider_owned_attributes?
+    attrs = params[:content_attributes] || {}
+    attrs = JSON.parse(attrs) if attrs.is_a?(String)
+    return false unless attrs.respond_to?(:keys)
+
+    attrs.keys.map(&:to_s).intersect?(%w[external_echo external_error external_created_at])
+  end
 
   def message
     @message ||= @conversation.messages.find(permitted_params[:id])

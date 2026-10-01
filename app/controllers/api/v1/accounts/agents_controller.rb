@@ -1,6 +1,7 @@
 class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
   before_action :fetch_agent, except: [:create, :index, :bulk_create]
   before_action :check_authorization
+  before_action :enforce_eps_membership_management, only: [:create, :bulk_create, :update, :destroy]
 
   def index
     @agents = agents
@@ -46,6 +47,11 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
   end
 
   private
+
+  def enforce_eps_membership_management
+    return unless Current.account.custom_attributes['eps_managed'] == true
+    render json: { error: 'Manage workforce memberships in EPS Admin' }, status: :unprocessable_entity
+  end
 
   def check_authorization
     super(User)

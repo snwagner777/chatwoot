@@ -1,7 +1,9 @@
 json.settings resource.settings
+json.eps_app_url EpsBridge::SessionVerifier.application_url if resource.custom_attributes['eps_managed'] == true
 json.created_at resource.created_at
 if resource.custom_attributes.present?
   json.custom_attributes do
+    json.eps_managed resource.custom_attributes['eps_managed'] == true
     json.plan_name resource.custom_attributes['plan_name']
     json.subscribed_quantity resource.custom_attributes['subscribed_quantity']
     json.subscription_status resource.custom_attributes['subscription_status']
@@ -15,6 +17,7 @@ if resource.custom_attributes.present?
     json.logo resource.custom_attributes['logo'] if resource.custom_attributes['logo'].present?
     json.referral_source resource.custom_attributes['referral_source'] if resource.custom_attributes['referral_source'].present?
     json.brand_info resource.custom_attributes['brand_info'] if resource.custom_attributes['brand_info'].present?
+    json.operator_theme resource.custom_attributes['operator_theme'] if resource.custom_attributes['operator_theme'].present?
     json.onboarding_step resource.onboarding_step if resource.onboarding_step.present?
     if resource.custom_attributes['help_center_generation_id'].present?
       json.help_center_generation_id resource.custom_attributes['help_center_generation_id']

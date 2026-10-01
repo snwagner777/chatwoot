@@ -36,6 +36,8 @@ export const MESSAGE_STATUS = {
   READ: 'read',
   FAILED: 'failed',
   PROGRESS: 'progress',
+  PENDING: 'pending',
+  DELIVERY_UNKNOWN: 'delivery_unknown',
 };
 
 export const ATTACHMENT_TYPES = {

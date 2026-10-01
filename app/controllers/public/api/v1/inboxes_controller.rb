@@ -1,18 +1,25 @@
 class Public::Api::V1::InboxesController < PublicController
   before_action :set_inbox_channel
+  before_action :reject_tracked_provider_inbox
   before_action :set_contact_inbox
   before_action :set_conversation
 
-  def show
-    @inbox_channel = ::Channel::Api.find_by!(identifier: params[:id])
-  end
+  def show; end
 
   private
 
-  def set_inbox_channel
-    return if params[:inbox_id].blank?
+  def reject_tracked_provider_inbox
+    return unless @inbox_channel&.additional_attributes&.dig('provider_delivery_tracking') == true
 
-    @inbox_channel = ::Channel::Api.find_by!(identifier: params[:inbox_id])
+    render json: { error: 'This inbox accepts messages only through its provider bridge' }, status: :forbidden
+  end
+
+  def set_inbox_channel
+    identifier = params[:inbox_id]
+    identifier ||= params[:id] if params[:controller] == 'public/api/v1/inboxes'
+    return if identifier.blank?
+
+    @inbox_channel = ::Channel::Api.find_by!(identifier: identifier)
   end
 
   def set_contact_inbox
@@ -29,5 +36,12 @@ class Public::Api::V1::InboxesController < PublicController
                     else
                       @contact_inbox.conversations.find_by!(display_id: params[:conversation_id])
                     end
+    reject_tracked_provider_conversation
+  end
+
+  def reject_tracked_provider_conversation
+    return unless EpsBridge::ProviderIsolation.tracked?(@conversation&.inbox)
+
+    render json: { error: 'This conversation is available only through the authenticated inbox' }, status: :forbidden
   end
 end

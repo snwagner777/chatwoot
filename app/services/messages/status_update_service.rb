@@ -35,6 +35,8 @@ class Messages::StatusUpdateService
 
   def valid_status_transition?
     return false unless Message.statuses.key?(status)
+    return valid_provider_transition? if message.provider_delivery_tracking?
+    return false if %w[pending delivery_unknown].include?(status)
 
     current_status = message.status
     new_priority = Message.statuses[status]
@@ -42,5 +44,17 @@ class Messages::StatusUpdateService
 
     # Allow: forward transitions, any transition to/from failed, or from nil
     status == 'failed' || current_status == 'failed' || new_priority >= current_priority
+  end
+
+  def valid_provider_transition?
+    transitions = {
+      'pending' => %w[pending delivery_unknown sent delivered read failed],
+      'delivery_unknown' => %w[delivery_unknown sent delivered read failed],
+      'sent' => %w[sent delivered read failed],
+      'delivered' => %w[delivered read],
+      'read' => %w[read],
+      'failed' => %w[failed]
+    }
+    transitions.fetch(message.status, []).include?(status)
   end
 end

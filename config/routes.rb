@@ -603,6 +603,7 @@ Rails.application.routes.draw do
           member do
             get :login
             post :token
+            post :eps_identity
           end
         end
         resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do

@@ -241,6 +241,7 @@
     }
   },
   "SIDEBAR_ITEMS": {
+    "RETURN_TO_EPS": "Return to EconomyOps",
     "CHANGE_AVAILABILITY_STATUS": "Change",
     "CHANGE_ACCOUNTS": "Switch account",
     "SWITCH_ACCOUNT": "Switch account",

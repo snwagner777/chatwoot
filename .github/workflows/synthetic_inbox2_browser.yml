@@ -1,0 +1,92 @@
+name: Synthetic Inbox2 Browser QA
+on:
+  pull_request:
+    branches: [codex/inbox2-v4.18.0]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: synthetic-inbox2-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7.4.3-alpine@sha256:f773b35a95e170d92dd4214a3ec4859b1b7960bf56896ae687646d695f311187
+        ports: ['6379:6379']
+    env:
+      RAILS_ENV: development
+      NODE_ENV: development
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: '5432'
+      POSTGRES_USERNAME: postgres
+      POSTGRES_DATABASE: inbox2_synthetic_qa
+      REDIS_URL: redis://127.0.0.1:6379
+      SECRET_KEY_BASE: synthetic-ci-only-never-a-production-key
+      ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: cccccccccccccccccccccccccccccccc
+      FRONTEND_URL: http://127.0.0.1:4310
+      EPS_CORE_ORIGIN: https://core.synthetic.test
+      ENABLE_ACCOUNT_SIGNUP: 'false'
+      ANNOTATERB_SKIP_ON_DB_TASKS: '1'
+      INBOX2_SYNTHETIC_QA: '1'
+      RAILS_MAX_THREADS: '3'
+      WEB_CONCURRENCY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.4'
+          bundler-cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - name: Install locked app and pinned browser test dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          npm install --prefix "$RUNNER_TEMP/inbox2-browser" --ignore-scripts --no-audit --no-fund playwright@1.61.1
+          "$RUNNER_TEMP/inbox2-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Run disposable Community browser fixture
+        run: |
+          set -euo pipefail
+          export INBOX2_QA_TMP_DIR="$RUNNER_TEMP/inbox2-qa"
+          export INBOX2_PLAYWRIGHT_PATH="$RUNNER_TEMP/inbox2-browser/node_modules/playwright"
+          mkdir -p "$INBOX2_QA_TMP_DIR/artifacts"
+          printf '[]\n' > "$INBOX2_QA_TMP_DIR/revoked.json"
+          rm -rf enterprise
+          bundle exec ruby -r./spec/system/inbox2_harness/boot.rb bin/rails db:create db:schema:load db:migrate
+          bundle exec ruby -r./spec/system/inbox2_harness/boot.rb bin/rails runner spec/system/inbox2_harness/seed.rb
+          python3 spec/system/inbox2_harness/mail_server.py > "$INBOX2_QA_TMP_DIR/mail.log" 2>&1 &
+          pnpm exec vite --host 127.0.0.1 --port 3036 > "$INBOX2_QA_TMP_DIR/vite.log" 2>&1 &
+          bundle exec ruby -r./spec/system/inbox2_harness/boot.rb bin/rails server -b 127.0.0.1 -p 4310 > "$INBOX2_QA_TMP_DIR/rails.log" 2>&1 &
+          trap 'kill $(jobs -pr) 2>/dev/null || true; wait || true' EXIT
+          ready=false
+          for attempt in {1..90}; do
+            if curl -fsS http://127.0.0.1:4310/api > "$INBOX2_QA_TMP_DIR/health.json"; then ready=true; break; fi
+            sleep 1
+          done
+          "$ready"
+          bundle exec ruby -r./spec/system/inbox2_harness/boot.rb bin/rails runner spec/system/inbox2_harness/smtp_smoke.rb
+          node spec/system/inbox2_harness/browser.cjs
+      - name: Upload only synthetic screenshots and safe results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-inbox2-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/inbox2-qa/artifacts/
+          if-no-files-found: warn
+          retention-days: 3

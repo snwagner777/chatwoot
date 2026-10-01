@@ -5,9 +5,10 @@ class Messages::MessageBuilder
 
   attr_reader :message
 
-  def initialize(user, conversation, params)
+  def initialize(user, conversation, params, provider_verified: false)
     @params = params
-    @private = params[:private] || false
+    @provider_verified = provider_verified == true
+    @private = ActiveModel::Type::Boolean.new.cast(params[:private]) || false
     @conversation = conversation
     @user = user
     @account = conversation.account
@@ -22,14 +23,14 @@ class Messages::MessageBuilder
   end
 
   def perform
+    EpsBridge::ProviderIsolation.validate_message!(@conversation, @params, @message_type, content_attributes) unless @provider_verified
     @message = @conversation.messages.build(message_params)
     process_attachments
     process_emails
     # When the message has no quoted content, it will just be rendered as a regular message
     # The frontend is equipped to handle this case
     process_email_content
-    @message.save!
-    @message
+    @message.tap(&:save!)
   end
 
   private
@@ -39,8 +40,7 @@ class Messages::MessageBuilder
   # - Attempts to parse a JSON string if content is a string.
   # - Returns an empty hash if content is not present, if there's a parsing error, or if it's an unexpected type.
   def content_attributes
-    params = convert_to_hash(@params)
-    content_attributes = params.fetch(:content_attributes, {})
+    content_attributes = convert_to_hash(@params).fetch(:content_attributes, {})
 
     return safe_parse_json(content_attributes) if content_attributes.is_a?(String)
     return content_attributes if content_attributes.is_a?(Hash)

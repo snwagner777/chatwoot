@@ -1,14 +1,34 @@
 <script setup>
-import { useAttrs } from 'vue';
+import { computed, useAttrs } from 'vue';
 import { useMapGetter } from 'dashboard/composables/store';
+import { useAccount } from 'dashboard/composables/useAccount';
+import { operatorThemeForAccount } from 'dashboard/composables/useOperatorTheme';
 
 const attrs = useAttrs();
 const globalConfig = useMapGetter('globalConfig/get');
+const { currentAccount } = useAccount();
+const operatorTheme = computed(() =>
+  operatorThemeForAccount(currentAccount.value)
+);
 </script>
 
 <template>
+  <svg
+    v-if="operatorTheme === 'economyops'"
+    v-bind="attrs"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path
+      d="M12 2C9 6.1 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-4-8.9-7-13Z"
+      fill="currentColor"
+      class="text-n-brand"
+    />
+  </svg>
   <img
-    v-if="globalConfig.logoThumbnail"
+    v-else-if="globalConfig.logoThumbnail"
     v-bind="attrs"
     :src="globalConfig.logoThumbnail"
   />

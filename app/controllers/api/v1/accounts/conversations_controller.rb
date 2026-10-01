@@ -40,7 +40,7 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
   def create
     ActiveRecord::Base.transaction do
       @conversation = ConversationBuilder.new(params: params, contact_inbox: @contact_inbox).perform
-      Messages::MessageBuilder.new(Current.user, @conversation, params[:message]).perform if params[:message].present?
+      create_eps_initial_message(@conversation) if params[:message].present?
     end
   end
 

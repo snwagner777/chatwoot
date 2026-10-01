@@ -1,4 +1,8 @@
 // scss-lint:disable PropertySortOrder
+html[data-operator-theme='economyops'] {
+  --inbox2-brand-color: #087f78;
+}
+
 @layer base {
   // NEXT COLORS START
   :root {

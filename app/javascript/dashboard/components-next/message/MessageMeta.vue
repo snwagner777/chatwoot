@@ -128,6 +128,9 @@ const isRead = computed(() => {
 });
 
 const statusToShow = computed(() => {
+  if (status.value === MESSAGE_STATUS.DELIVERY_UNKNOWN) {
+    return MESSAGE_STATUS.DELIVERY_UNKNOWN;
+  }
   if (isRead.value) return MESSAGE_STATUS.READ;
   if (isDelivered.value) return MESSAGE_STATUS.DELIVERED;
   if (isSent.value) return MESSAGE_STATUS.SENT;
