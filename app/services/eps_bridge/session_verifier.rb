@@ -37,6 +37,7 @@ class EpsBridge::SessionVerifier
     payload = encode({ purpose: 'session-status', timestamp: Time.current.to_i, coreUserId: identity['core_user_id'],
                        webSessionId: binding['web_session_id'], chatwootUserId: @user.id, accountId: identity['account_id'] })
     request = Net::HTTP::Post.new('/api/v1/core/inbox2/session-status')
+    request['content-type'] = 'text/plain; charset=utf-8'
     request['x-eps-bridge-payload'] = payload
     request['x-eps-bridge-signature'] = signature(payload)
     request['accept'] = 'application/json'

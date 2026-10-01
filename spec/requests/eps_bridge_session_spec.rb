@@ -51,4 +51,15 @@ RSpec.describe 'EPS browser session enforcement', type: :request do
     expect(response).to have_http_status(:unauthorized)
     expect(user.reload.tokens).to be_empty
   end
+
+  it 'uses an explicit empty plain-text callback for session verification' do
+    binding = { 'core_user_id' => 'eps-1', 'web_session_id' => 'web-1', 'account_id' => account.id }
+    with_modified_env 'EPS_CORE_ORIGIN' => 'https://core.example.test' do
+      callback = stub_request(:post, 'https://core.example.test/api/v1/core/inbox2/session-status')
+                 .with(headers: { 'Content-Type' => 'text/plain; charset=utf-8' }, body: '')
+                 .to_return(status: 200, body: '{"active":true}')
+      expect(EpsBridge::SessionVerifier.new(user).active?(binding)).to be(true)
+      expect(callback).to have_been_requested.once
+    end
+  end
 end

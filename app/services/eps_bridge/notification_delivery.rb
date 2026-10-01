@@ -61,7 +61,7 @@ class EpsBridge::NotificationDelivery
     claims = { purpose: 'notification', timestamp: Time.current.to_i, accountId: @account.id, chatwootUserId: @user.id,
                conversationId: @notification.primary_actor.display_id, notificationId: @notification.id }
     payload = Base64.urlsafe_encode64(claims.to_json, padding: false)
-    request = Net::HTTP::Post.new('/api/v1/core/internal/inbox2/notifications')
+    request = Net::HTTP::Post.new('/api/v1/core/inbox2/notifications')
     request['content-type'] = 'text/plain; charset=utf-8'
     request['x-eps-bridge-payload'] = payload
     request['x-eps-bridge-signature'] = OpenSSL::HMAC.hexdigest('SHA256', @platform.access_token.token, payload)

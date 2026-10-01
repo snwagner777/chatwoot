@@ -13,7 +13,7 @@ access, push preference, EPS identity binding, and PlatformApp access to both
 account and user. No EPS web session is required for native delivery.
 
 The job posts an empty body to the configured HTTPS `EPS_CORE_ORIGIN` at
-`/api/v1/core/internal/inbox2/notifications`. No redirects are followed. Headers:
+`/api/v1/core/inbox2/notifications`. No redirects are followed. Headers:
 
 - `x-eps-bridge-payload`: unpadded base64url JSON
 - `x-eps-bridge-signature`: lowercase hex HMAC-SHA256 over that payload, using

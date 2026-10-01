@@ -7,7 +7,7 @@ RSpec.describe EpsBridge::NotificationJob do
   let(:user) { create(:user, :administrator, account: account) }
   let(:platform) { create(:platform_app) }
   let(:conversation) { create(:conversation, account: account) }
-  let(:endpoint) { 'https://core.example.test/api/v1/core/internal/inbox2/notifications' }
+  let(:endpoint) { 'https://core.example.test/api/v1/core/inbox2/notifications' }
   let(:notification) { create(:notification, account: account, user: user, primary_actor: conversation) }
 
   around do |example|

@@ -48,6 +48,11 @@ accounts.each_with_index do |account, index|
   conversation = FactoryBot.create(:conversation, account: account, inbox: api_inbox, contact: contact, assignee: account.users.first)
   FactoryBot.create(:message, account: account, inbox: api_inbox, conversation: conversation, sender: contact,
                               content: 'Synthetic appointment confirmation request')
+  # A real scrollable synthetic thread for narrow-screen navigation checks.
+  18.times do |message_index|
+    FactoryBot.create(:message, account: account, inbox: api_inbox, conversation: conversation, sender: contact,
+                                content: "Synthetic scroll message #{message_index + 1}: no real customer data.")
+  end
   FactoryBot.create(:message, account: account, inbox: api_inbox, conversation: conversation, sender: account.users.first,
                               message_type: :outgoing, content: 'Synthetic reply awaiting provider confirmation')
 end

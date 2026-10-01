@@ -132,11 +132,95 @@ const bounded = (entries, entry) => {
         path: `${root}/artifacts/synthetic-account-${index + 1}-conversation.png`,
       });
       if (index === 0) {
+        report.stage = 'narrow-native-navigation';
         await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto(
+          `http://127.0.0.1:4310/app/accounts/${user.account_id}/dashboard`
+        );
+        const launcher = page.locator('#mobile-sidebar-launcher button');
+        await launcher.waitFor({ state: 'visible' });
+        // Exercise the native flyout and close it with its visible toggle.
+        // Waiting for its final geometry avoids capturing the resize animation.
+        await launcher.click();
+        await page.waitForFunction(() => {
+          const rect = document.querySelector('aside')?.getBoundingClientRect();
+          return rect && rect.left >= -1 && rect.right > 100;
+        });
+        await launcher.click();
+        await page.waitForFunction(() => {
+          const rect = document.querySelector('aside')?.getBoundingClientRect();
+          return rect && rect.right <= 1;
+        });
+        await page
+          .getByText('Synthetic SMS Customer 1', { exact: false })
+          .first()
+          .click();
+        const panel = page.locator('.conversation-panel');
+        const editor = page
+          .locator('.reply-box [contenteditable="true"]')
+          .first();
+        const send = page.locator('.reply-box button[type="submit"]');
+        await panel
+          .getByText('Synthetic reply awaiting provider confirmation', {
+            exact: false,
+          })
+          .waitFor();
+        await editor.fill('Synthetic narrow viewport draft only');
+        await send.click({ trial: true });
+        for (const control of [panel, editor, send]) {
+          const rect = await control.boundingBox();
+          assert.ok(rect && rect.width > 0 && rect.height > 0);
+          assert.ok(rect.x >= -1 && rect.x + rect.width <= 391);
+          assert.ok(rect.y >= -1 && rect.y + rect.height <= 845);
+        }
+        assert.ok(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth + 1
+          )
+        );
+        await page.waitForFunction(() => {
+          const panel = document.querySelector('.conversation-panel');
+          return (
+            panel &&
+            panel.scrollHeight > panel.clientHeight + 100 &&
+            panel.scrollTop > 100
+          );
+        });
+        const bottom = await panel.evaluate(element => element.scrollTop);
+        const bounds = await panel.boundingBox();
+        await page.mouse.move(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2
+        );
+        await page.mouse.wheel(0, -500);
+        await page.waitForFunction(
+          previous =>
+            document.querySelector('.conversation-panel').scrollTop <
+            previous - 50,
+          bottom
+        );
+        await page.screenshot({
+          path: `${root}/artifacts/synthetic-mobile-web-read.png`,
+        });
+        const upper = await panel.evaluate(element => element.scrollTop);
+        await page.mouse.wheel(0, 1000);
+        await page.waitForFunction(
+          previous =>
+            document.querySelector('.conversation-panel').scrollTop >
+            previous + 50,
+          upper
+        );
         await page.screenshot({
           path: `${root}/artifacts/synthetic-mobile-web-conversation.png`,
         });
+        await editor.fill('');
+        record(
+          'Narrow native sidebar navigation, conversation scrolling and usable composer/send controls'
+        );
         await page.setViewportSize({ width: 1440, height: 960 });
+        await page.goto(
+          `http://127.0.0.1:4310/app/accounts/${user.account_id}/dashboard`
+        );
       }
       await page
         .getByText(`Synthetic SMS Customer ${index + 1}`, { exact: false })
