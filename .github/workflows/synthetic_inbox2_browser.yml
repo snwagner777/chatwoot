@@ -1,7 +1,7 @@
 name: Synthetic Inbox2 Browser QA
 on:
   pull_request:
-    branches: [codex/inbox2-v4.18.0]
+    branches: [codex/inbox2-v4.18.0, main]
   workflow_dispatch:
 permissions:
   contents: read
