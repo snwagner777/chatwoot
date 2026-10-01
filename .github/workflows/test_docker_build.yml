@@ -6,6 +6,7 @@ on:
       - develop
       - master
       - codex/inbox2-v4.18.0
+      - main
   workflow_dispatch:
 
 permissions:
