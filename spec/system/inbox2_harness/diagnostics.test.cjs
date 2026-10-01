@@ -67,3 +67,20 @@ test('classifies WebSocket startup errors without retaining messages or tokens',
     { name: 'Error', code: 'websocket-before-open' }
   );
 });
+test('classifies HTTP and resize failures without response bodies or trace data', () => {
+  assert.deepEqual(
+    errorSummary({
+      name: 'Error',
+      message:
+        'Request failed with status code 401: {"token":"synthetic-secret"}',
+    }),
+    { name: 'Error', code: 'http-401' }
+  );
+  assert.deepEqual(
+    errorSummary({
+      name: 'Error',
+      message: 'ResizeObserver loop completed with undelivered notifications.',
+    }),
+    { name: 'Error', code: 'resize-observer-loop' }
+  );
+});

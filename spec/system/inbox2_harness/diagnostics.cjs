@@ -28,6 +28,12 @@ const errorSummary = error => {
   ];
   const name = names.includes(error?.name) ? error.name : 'Error';
   const message = String(error?.message || '');
+  const status = message.match(
+    /Request failed with status code (400|401|403|404|409|422|429|500|502|503|504)\b/
+  );
+  if (status) return { name, code: `http-${status[1]}` };
+  if (/ResizeObserver loop/.test(message))
+    return { name, code: 'resize-observer-loop' };
   const codes = [
     'ERR_CONNECTION_REFUSED',
     'ERR_CONNECTION_RESET',

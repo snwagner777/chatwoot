@@ -55,7 +55,10 @@ const bounded = (entries, entry) => {
       const page = await context.newPage();
       lastPage = page;
       page.on('pageerror', error =>
-        bounded(report.pageErrors, errorSummary(error))
+        bounded(report.pageErrors, {
+          ...errorSummary(error),
+          afterCheck: report.checks.length,
+        })
       );
       page.on('console', message => {
         if (message.type() === 'error')
