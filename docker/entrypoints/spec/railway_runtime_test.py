@@ -11,6 +11,11 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class RailwayRuntimeTest(unittest.TestCase):
+    def test_dockerfile_uses_railway_managed_storage_volume(self):
+        dockerfile = (ROOT / 'docker/Dockerfile').read_text()
+        self.assertNotRegex(dockerfile, r'(?im)^\s*VOLUME\s+')
+        self.assertIn('RUN mkdir -p /app/storage /app/tmp/pids', dockerfile)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
