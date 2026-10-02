@@ -1,9 +1,13 @@
 require 'rails_helper'
 
 RSpec.describe EpsBridge::SessionVerifier do
+  let(:account) { create(:account) }
   let(:platform_app) { create(:platform_app) }
-  let(:user) { create(:user, custom_attributes: { eps_bridge: { platform_app_id: platform_app.id, core_user_id: 'eps-1', account_id: 1 } }) }
-  let(:binding) { { 'core_user_id' => 'eps-1', 'web_session_id' => 'web-1', 'account_id' => 1 } }
+  let(:user) do
+    create(:user, account: account,
+                  custom_attributes: { eps_bridge: { platform_app_id: platform_app.id, core_user_id: 'eps-1', account_id: account.id } })
+  end
+  let(:binding) { { 'core_user_id' => 'eps-1', 'web_session_id' => 'web-1', 'account_id' => account.id } }
   let(:verifier) { described_class.new(user) }
 
   it 'exposes only a plain HTTPS application origin for navigation' do
@@ -37,7 +41,8 @@ RSpec.describe EpsBridge::SessionVerifier do
 
   it 'requires body-bound one-use proof for direct managed-user API tokens' do
     payload = Base64.urlsafe_encode64({ purpose: 'native-proxy', timestamp: Time.current.to_i, nonce: 'nonce-1', coreUserId: 'eps-1',
-                                        chatwootUserId: user.id, accountId: 1, method: 'POST', path: '/api/v1/accounts/1/conversations/2/messages',
+                                        chatwootUserId: user.id, accountId: account.id, method: 'POST',
+                                        path: '/api/v1/accounts/1/conversations/2/messages',
                                         bodyHash: Digest::SHA256.hexdigest('{"content":"hello"}') }.to_json, padding: false)
     signature = OpenSSL::HMAC.hexdigest('SHA256', platform_app.access_token.token, payload)
     request = instance_double(ActionDispatch::Request, headers: { 'x-eps-bridge-payload' => payload, 'x-eps-bridge-signature' => signature },

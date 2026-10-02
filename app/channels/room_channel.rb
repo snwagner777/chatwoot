@@ -29,21 +29,31 @@ class RoomChannel < ApplicationCable::Channel
   end
 
   def ensure_stream
-    if @current_user.is_a?(Contact)
-      stream_from(pubsub_token, coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
-      return
-    end
-    if @current_user.is_a?(User) && EpsBridge::SessionVerifier.new(@current_user).managed?
-      stream_from(pubsub_token, coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
-      stream_from("account_#{@current_account.id}", coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
-      return
-    end
-    stream_from pubsub_token
-    stream_from "account_#{@current_account.id}" if @current_account.present? && @current_user.is_a?(User)
+    stream_from(pubsub_token, coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
+    return unless @current_account.present? && @current_user.is_a?(User)
+
+    stream_from("account_#{@current_account.id}", coder: ActiveSupport::JSON) { |data| transmit_eps_event(data) }
   end
 
   def transmit_eps_event(data)
-    transmit(data) if verify_eps_stream
+    return unless verify_eps_stream
+    return if @current_user.is_a?(User) && !authorized_user_event?(data)
+
+    transmit(data)
+  end
+
+  # User pubsub tokens span accounts, so each event needs its own account authorization.
+  def authorized_user_event?(data)
+    return false unless data.is_a?(Hash)
+
+    payload = data.with_indifferent_access[:data]
+    return false unless payload.is_a?(Hash)
+
+    account_id = payload[:account_id]
+    return false unless (account_id.is_a?(Integer) || account_id.is_a?(String)) && account_id.to_s.match?(/\A[1-9]\d*\z/)
+    return true if account_id.to_s == @current_account.id.to_s
+
+    authorized_user_account?(account_id)
   end
 
   def verify_eps_stream
@@ -51,14 +61,21 @@ class RoomChannel < ApplicationCable::Channel
     return true unless @current_user.is_a?(User)
 
     @current_user.reload
-    verifier = EpsBridge::SessionVerifier.new(@current_user)
-    return true unless verifier.managed?
-
-    return true if verifier.active_client?(params[:client_id], @current_account&.id)
+    return true if authorized_user_account?(@current_account&.id)
 
     stop_all_streams
     reject
     false
+  end
+
+  def authorized_user_account?(account_id)
+    account = @current_user.accounts.find_by(id: account_id)
+    return false if account.blank?
+
+    verifier = EpsBridge::SessionVerifier.new(@current_user)
+    return true unless verifier.managed_account?(account)
+
+    @current_user.valid_token?(params[:access_token], params[:client_id]) && verifier.active_client?(params[:client_id], account.id)
   end
 
   def verify_provider_contact_stream

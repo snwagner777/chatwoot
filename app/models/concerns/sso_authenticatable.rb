@@ -26,9 +26,12 @@ module SsoAuthenticatable
   end
 
   def eps_sso_session(token)
-    JSON.parse(::Redis::Alfred.get(sso_token_key(token)).to_s)['eps_session']
-  rescue JSON::ParserError
-    nil
+    value = ::Redis::Alfred.get(sso_token_key(token)).to_s
+    return nil if %w[normal impersonation].include?(value)
+
+    JSON.parse(value).fetch('eps_session') || false
+  rescue JSON::ParserError, KeyError, TypeError, NoMethodError
+    false
   end
 
   def sso_auth_token_impersonation?(token)

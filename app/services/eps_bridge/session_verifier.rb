@@ -18,7 +18,14 @@ class EpsBridge::SessionVerifier
   end
 
   def managed?
-    @user.custom_attributes.key?('eps_bridge')
+    identity.is_a?(Hash)
+  end
+
+  def managed_account?(account)
+    account = Account.find_by(id: account) unless account.is_a?(Account)
+    return false unless account
+
+    account.custom_attributes['eps_managed'] == true || (managed? && identity['account_id'] == account.id)
   end
 
   def active_client?(client_id, account_id = nil)
@@ -26,6 +33,7 @@ class EpsBridge::SessionVerifier
     return false unless token && token['expiry'].to_i > Time.current.to_i
 
     binding = token['eps_session']
+    return false unless binding.is_a?(Hash)
     return false if account_id.present? && account_id.to_s != binding&.dig('account_id').to_s
 
     active?(binding)
@@ -50,9 +58,10 @@ class EpsBridge::SessionVerifier
     verified_proxy_purpose(request).present?
   end
 
-  def verified_proxy_purpose(request)
+  def verified_proxy_purpose(request, account_id = nil)
     claims = verified_claims(request)
     return unless fresh_claims?(claims) && matching_identity?(claims) && matching_request?(claims, request)
+    return unless matching_account?(claims, account_id)
     return if Redis::Alfred.set("eps_bridge:request:#{@user.id}:#{claims['nonce']}", 'used', nx: true, ex: 60).blank?
 
     claims['purpose']
@@ -63,7 +72,8 @@ class EpsBridge::SessionVerifier
   private
 
   def valid_binding?(binding)
-    binding.is_a?(Hash) && binding['core_user_id'] == identity['core_user_id'] &&
+    managed? && @user.account_users.exists?(account_id: identity['account_id']) &&
+      binding.is_a?(Hash) && binding['core_user_id'] == identity['core_user_id'] &&
       binding['account_id'] == identity['account_id'] && binding['web_session_id'].is_a?(String)
   end
 
@@ -111,7 +121,12 @@ class EpsBridge::SessionVerifier
   end
 
   def matching_identity?(claims)
-    claims['coreUserId'] == identity['core_user_id'] && claims['chatwootUserId'] == @user.id && claims['accountId'] == identity['account_id']
+    managed? && @user.account_users.exists?(account_id: identity['account_id']) &&
+      claims['coreUserId'] == identity['core_user_id'] && claims['chatwootUserId'] == @user.id && claims['accountId'] == identity['account_id']
+  end
+
+  def matching_account?(claims, account_id)
+    account_id.blank? || account_id.to_s == claims['accountId'].to_s
   end
 
   def matching_request?(claims, request)
@@ -120,7 +135,7 @@ class EpsBridge::SessionVerifier
   end
 
   def identity
-    @user.custom_attributes.fetch('eps_bridge')
+    @user.custom_attributes['eps_bridge']
   end
 
   def encode(value)

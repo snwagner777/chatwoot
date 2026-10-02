@@ -47,10 +47,11 @@ RSpec.describe RoomChannel do
     user.save!
     with_modified_env 'EPS_CORE_ORIGIN' => 'https://core.example.test' do
       stub_request(:post, 'https://core.example.test/api/v1/core/inbox2/session-status').to_return(status: 200, body: '{"active":true}')
-      subscribe(user_id: user.id, pubsub_token: user.pubsub_token, account_id: account.id, client_id: auth['client'])
+      subscribe(user_id: user.id, pubsub_token: user.pubsub_token, account_id: account.id,
+                client_id: auth['client'], access_token: auth['access-token'])
       expect(subscription).to be_confirmed
       stub_request(:post, 'https://core.example.test/api/v1/core/inbox2/session-status').to_return(status: 200, body: '{"active":false}')
-      subscription.send(:transmit_eps_event, { event: 'message.created', data: { content: 'not delivered after logout' } })
+      subscription.send(:transmit_eps_event, { event: 'message.created', data: { account_id: account.id, content: 'not delivered after logout' } })
       expect(transmissions).to be_empty
       expect(subscription).to be_rejected
     end

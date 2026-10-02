@@ -4,6 +4,7 @@ class Platform::Api::V1::UsersController < PlatformController
   # we want to add login and token to that chain as well
   before_action(only: [:login, :token, :eps_identity]) { set_resource }
   before_action(only: [:login, :token, :eps_identity]) { validate_platform_app_permissible }
+  before_action :validate_eps_identity_attributes, only: [:create, :update]
 
   def show; end
 
@@ -45,6 +46,13 @@ class Platform::Api::V1::UsersController < PlatformController
   end
 
   private
+
+  def validate_eps_identity_attributes
+    attributes = params[:custom_attributes]
+    return unless attributes.is_a?(ActionController::Parameters) && attributes.key?(:eps_bridge)
+
+    render json: { error: 'Use the EPS identity binding endpoint to manage eps_bridge' }, status: :unprocessable_entity
+  end
 
   def user_custom_attributes
     return @resource.custom_attributes.merge(user_params[:custom_attributes]) if user_params[:custom_attributes]

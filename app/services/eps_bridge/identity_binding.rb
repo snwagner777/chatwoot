@@ -18,9 +18,9 @@ class EpsBridge::IdentityBinding
   end
 
   def login_binding(params)
-    return unless @user.custom_attributes.key?('eps_bridge')
-
     identity = @user.custom_attributes['eps_bridge']
+    eps_request = %i[eps_core_user_id eps_session_id eps_account_id].any? { |key| params.key?(key) }
+    return unless eps_request || (identity.is_a?(Hash) && identity['platform_app_id'] == @platform_app.id)
     raise ArgumentError, 'Invalid EPS session binding' unless matching_login?(identity, params)
 
     { 'core_user_id' => identity['core_user_id'], 'web_session_id' => params[:eps_session_id], 'account_id' => identity['account_id'] }
@@ -35,7 +35,7 @@ class EpsBridge::IdentityBinding
   end
 
   def matching_login?(identity, params)
-    identity['platform_app_id'] == @platform_app.id && identity['core_user_id'] == params[:eps_core_user_id] &&
+    identity.is_a?(Hash) && identity['platform_app_id'] == @platform_app.id && identity['core_user_id'] == params[:eps_core_user_id] &&
       identity['account_id'].to_s == params[:eps_account_id].to_s && params[:eps_session_id].is_a?(String) &&
       params[:eps_session_id].length.between?(1, 200)
   end

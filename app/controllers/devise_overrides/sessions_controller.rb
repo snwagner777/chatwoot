@@ -9,7 +9,6 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController 
   # same credentials a header-only request would authenticate with.
   before_action :merge_credential_headers, only: [:create]
   before_action :process_sso_auth_token, only: [:create]
-  before_action :eps_login_method_allowed?, only: [:create]
 
   def new
     redirect_to login_page_url(error: 'access-denied')
@@ -136,8 +135,6 @@ class DeviseOverrides::SessionsController < DeviseTokenAuth::SessionsController 
   end
 
   def sign_in_mfa_user(user)
-    return render_error(:unauthorized, 'Use EconomyOps to sign in') if user.custom_attributes.key?('eps_bridge')
-
     evict_oldest_session(user) if sessions_limit_reached?(user)
     @resource = user
     @token = @resource.create_token
