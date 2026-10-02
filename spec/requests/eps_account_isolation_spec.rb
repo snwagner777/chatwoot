@@ -152,6 +152,8 @@ RSpec.describe 'EPS account isolation', type: :request do
   end
 
   it 'keeps MFA native authentication usable for the independent account' do
+    skip('Skipping since MFA is not configured in this environment') unless Chatwoot.encryption_configured?
+
     user.enable_two_factor!
     user.update!(otp_required_for_login: true)
     post '/auth/sign_in', params: { email: user.email, password: 'Password1!' }, as: :json

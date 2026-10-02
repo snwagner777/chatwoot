@@ -4,6 +4,7 @@ permissions:
 
 on:
   pull_request:
+  workflow_dispatch:
 
 # If two pushes happen within a short time in the same PR, cancel the run of the oldest push
 concurrency:
@@ -70,6 +71,7 @@ jobs:
             spec/services/mfa/authentication_service_spec.rb \
             spec/requests/api/v1/profile/mfa_controller_spec.rb \
             spec/controllers/devise_overrides/sessions_controller_spec.rb \
+            spec/requests/eps_account_isolation_spec.rb \
             spec/models/application_record_external_credentials_encryption_spec.rb \
             --profile=10 \
             --format documentation
