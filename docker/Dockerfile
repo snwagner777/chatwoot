@@ -167,6 +167,6 @@ WORKDIR /app
 
 RUN mkdir -p /app/storage /app/tmp/pids
 
-VOLUME ["/app/storage"]
+# Railway manages the persistent volume mounted at /app/storage.
 EXPOSE 3000
 CMD ["/bin/sh", "docker/entrypoints/railway.sh"]
