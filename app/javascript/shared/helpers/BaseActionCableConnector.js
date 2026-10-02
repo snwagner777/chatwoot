@@ -11,7 +11,8 @@ class BaseActionCableConnector {
     pubsubToken,
     websocketHost = '',
     presenceInterval = PRESENCE_INTERVAL,
-    sessionClient = null
+    sessionClient = null,
+    sessionAccessToken = null
   ) {
     const websocketURL = websocketHost ? `${websocketHost}/cable` : undefined;
 
@@ -23,6 +24,7 @@ class BaseActionCableConnector {
         account_id: app.$store.getters.getCurrentAccountId,
         user_id: app.$store.getters.getCurrentUserID,
         client_id: sessionClient,
+        access_token: sessionAccessToken,
       },
       {
         updatePresence() {

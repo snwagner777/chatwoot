@@ -1,3 +1,6 @@
+account_users = eps_visible_account_users(resource, resource.account_users.includes(:account))
+active_account_user = account_users.find { |membership| membership.account_id == @account.id }
+
 json.data do
   json.id resource.id
   json.provider resource.provider
@@ -8,13 +11,13 @@ json.data do
   json.account_id @account.id
   json.created_at resource.created_at
   json.pubsub_token resource.pubsub_token
-  json.role resource.active_account_user&.role
-  json.inviter_id resource.active_account_user&.inviter_id
+  json.role active_account_user&.role
+  json.inviter_id active_account_user&.inviter_id
   json.confirmed resource.confirmed?
   json.avatar_url resource.avatar_url
   json.access_token resource.access_token.token
   json.accounts do
-    json.array! resource.account_users do |account_user|
+    json.array! account_users do |account_user|
       json.id account_user.account_id
       json.name account_user.account.name
       json.active_at account_user.active_at

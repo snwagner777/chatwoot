@@ -4,6 +4,7 @@ class ApplicationController < ActionController::Base
   include Pundit::Authorization
   include SwitchLocale
   include TrackSessionActivity
+  include EpsBridgeProfileScope
 
   skip_before_action :verify_authenticity_token
 

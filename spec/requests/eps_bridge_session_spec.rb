@@ -31,7 +31,7 @@ RSpec.describe 'EPS browser session enforcement', type: :request do
     end
   end
 
-  it 'stores the EPS binding during real SSO and does not accept a managed password login' do
+  it 'stores the EPS binding only during real EPS SSO' do
     binding = { 'core_user_id' => 'eps-1', 'web_session_id' => 'web-1', 'account_id' => account.id }
     token = user.generate_sso_auth_token(eps_session: binding)
     with_modified_env 'EPS_CORE_ORIGIN' => 'https://core.example.test' do
@@ -40,16 +40,20 @@ RSpec.describe 'EPS browser session enforcement', type: :request do
       expect(response).to have_http_status(:ok)
       expect(user.reload.tokens.dig(response.headers['client'], 'eps_session')).to eq(binding)
       post '/auth/sign_in', params: { email: user.email, password: 'Password1!' }, as: :json
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.dig('data', 'accounts')).to be_empty
+      expect(user.reload.tokens.dig(response.headers['client'], 'eps_session')).to be_nil
     end
   end
 
-  it 'applies EPS-only login to whitespace and header email credentials' do
+  it 'normalizes native login whitespace and header email credentials without granting EPS access' do
     post '/auth/sign_in', params: { email: " #{user.email.upcase} ", password: 'Password1!' }, as: :json
-    expect(response).to have_http_status(:unauthorized)
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig('data', 'accounts')).to be_empty
     post '/auth/sign_in', headers: { email: " #{user.email} ", password: 'Password1!' }, as: :json
-    expect(response).to have_http_status(:unauthorized)
-    expect(user.reload.tokens).to be_empty
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig('data', 'accounts')).to be_empty
+    expect(user.reload.tokens.values.pluck('eps_session')).to all(be_nil)
   end
 
   it 'uses an explicit empty plain-text callback for session verification' do
